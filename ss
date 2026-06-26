@@ -82,7 +82,7 @@ port=$(port_for "$user") || exit 1
 # Bring up the tunnel only if it isn't already running for this user+port.
 if ! pgrep -f "ssh -fN -L[[:space:]]+${port}:127\.0\.0\.1:${REMOTE_PORT}[[:space:]]+${user}@localhost" \
      >/dev/null 2>&1; then
-  echo "ss: starting session for $user on local port $port — authenticate as $user…" 1>&2
+  echo "ss: starting session for ${user} on local port ${port} — authenticate as ${user}…" 1>&2
   # Dedicated connection (ignore any ssh multiplexing config); fail loudly if the
   # local port can't bind; let a dead connection exit so the next run rebuilds it.
   ssh -fN \
