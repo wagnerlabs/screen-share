@@ -16,11 +16,15 @@ set -eu
 REMOTE_PORT=5900     # macOS Screen Sharing port, reached on loopback via ssh
 BASE=5900            # local port = BASE + (uid - 500); uid 501 -> 5901
 
-# ERE matching ANY tunnel this tool creates (macOS pgrep/pkill use ERE);
-# whitespace-tolerant so a hand-made tunnel with odd spacing still matches.
-match='ssh -fN -L[[:space:]]+[0-9]+:127\.0\.0\.1:'"$REMOTE_PORT"'[[:space:]]+[^[:space:]]+@localhost'
+# ERE matching ANY tunnel this tool creates (macOS pgrep/pkill use ERE).
+# Allows ssh options between -fN and -L, and either "-L port:..." or "-Lport:...".
+match='ssh([[:space:]]+[^[:space:]]+)*[[:space:]]+-L[[:space:]]*[0-9]+:127\.0\.0\.1:'"$REMOTE_PORT"'([[:space:]]+[^[:space:]]+)*[[:space:]][^[:space:]]+@localhost'
 
 die() { echo "ss: $*" 1>&2; exit 1; }
+
+tunnel_match() {
+  printf 'ssh([[:space:]]+[^[:space:]]+)*[[:space:]]+-L[[:space:]]*%s:127\\.0\\.0\\.1:%s([[:space:]]+[^[:space:]]+)*[[:space:]]%s@localhost' "$1" "$REMOTE_PORT" "$2"
+}
 
 usage() {
   cat 1>&2 <<'EOF'
@@ -61,7 +65,7 @@ case "${1:-}" in
   -k|--stop)
       u=${2:-}; [ -n "$u" ] || die "usage: ss -k <user>"
       p=$(port_for "$u") || exit 1
-      if pkill -f "ssh -fN -L[[:space:]]+${p}:127\.0\.0\.1:${REMOTE_PORT}[[:space:]]+${u}@localhost"
+      if pkill -f "$(tunnel_match "$p" "$u")"
       then echo "stopped session for $u"; else echo "no session for $u"; fi
       exit 0 ;;
   "")  usage; exit 1 ;;
@@ -80,7 +84,7 @@ tgtuid=$(id -u "$user" 2>/dev/null) || true
 port=$(port_for "$user") || exit 1
 
 # Bring up the tunnel only if it isn't already running for this user+port.
-if ! pgrep -f "ssh -fN -L[[:space:]]+${port}:127\.0\.0\.1:${REMOTE_PORT}[[:space:]]+${user}@localhost" \
+if ! pgrep -f "$(tunnel_match "$port" "$user")" \
      >/dev/null 2>&1; then
   echo "ss: starting session for ${user} on local port ${port} — authenticate as ${user}…" 1>&2
   # Dedicated connection (ignore any ssh multiplexing config); fail loudly if the
